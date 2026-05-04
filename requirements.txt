@@ -1,0 +1,7 @@
+# 공통 의존성
+pygame
+pyserial
+matplotlib
+
+# Raspberry Pi 전용 (Pi에서만 설치)
+# hx711
