@@ -57,10 +57,16 @@ class C:
 def _load_font(size: int) -> pygame.font.Font:
     """한글 지원 폰트를 시스템에서 찾아 로드. 없으면 기본 폰트."""
     candidates = [
+        # macOS
         "/System/Library/Fonts/AppleSDGothicNeo.ttc",
         "/System/Library/Fonts/AppleGothic.ttf",
         "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
         "/Library/Fonts/NanumGothic.ttf",
+        # Linux / Raspberry Pi
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
     for path in candidates:
         if os.path.exists(path):

@@ -248,3 +248,20 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
+
+
+
+
+
+
+# 라즈베리 파이로 깃허브 파일 보내는 방법
+```bash
+scp -r /Users/jongha/Desktop/GitHub/grip-rehab-system doori@192.168.0.206:~/
+```
+
+# 라즈베리파이에서 파일 실행
+```bash
+export DISPLAY=:0
+cd ~/grip-rehab-system/games/balloon_game
+python3 main.py --arduino
+```
