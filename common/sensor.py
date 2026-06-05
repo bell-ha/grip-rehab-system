@@ -46,8 +46,8 @@ class GripFilter:
         self._prev: float = 0.0
 
     def process(self, raw: float) -> float:
-        # 1. 스파이크 필터
-        if abs(raw - self._prev) > SPIKE_THRESHOLD:
+        # 1. 스파이크 필터 — 급격한 상승만 차단 (하강은 정상 이완이므로 허용)
+        if raw - self._prev > SPIKE_THRESHOLD:
             raw = self._prev
         self._prev = raw
 
@@ -266,16 +266,32 @@ class ArduinoGripSensor(GripSensor):
     TARE_SECS  = 3
     CALIB_SECS = 5
 
-    def __init__(self):
+    def __init__(self, port: str | None = None):
         super().__init__()
-        self._filter_l = GripFilter()
-        self._filter_r = GripFilter()
-        self._tare_l   = 0.0
-        self._tare_r   = 0.0
-        self._scale_l  = 1.0
-        self._scale_r  = 1.0
-        self._port     = _find_arduino_port()
+        self._filter_l   = GripFilter()
+        self._filter_r   = GripFilter()
+        self._tare_l     = 0.0
+        self._tare_r     = 0.0
+        self._scale_l    = 1.0
+        self._scale_r    = 1.0
+        self._calibrated = False
+        self._port       = port or _find_arduino_port()
         print(f"[INFO] 아두이노 감지: {self._port}")
+        self._load_calibration()
+
+    def _load_calibration(self):
+        import json, os
+        calib_path = os.path.join(os.path.dirname(__file__), 'calibration.json')
+        if not os.path.exists(calib_path):
+            return
+        with open(calib_path) as f:
+            data = json.load(f)
+        self._tare_l     = data['tare_l']
+        self._tare_r     = data['tare_r']
+        self._scale_l    = data['scale_l']
+        self._scale_r    = data['scale_r']
+        self._calibrated = True
+        print(f"[INFO] 캘리브레이션 로드: L={self._tare_l:.0f}/{self._scale_l:.1f}  R={self._tare_r:.0f}/{self._scale_r:.1f}")
 
     def _read_raw(self, ser) -> tuple[int, int] | None:
         """시리얼에서 한 줄 읽어 (raw1, raw2) 반환. 실패 시 None."""
@@ -327,8 +343,11 @@ class ArduinoGripSensor(GripSensor):
         try:
             ser = serial.Serial(self._port, self.BAUD_RATE, timeout=1)
             time.sleep(2)           # 아두이노 부팅 대기
-            self._do_tare(ser)
-            self._do_scale_calib(ser, pop_kg=22.0)
+            if self._calibrated:
+                print("[INFO] 저장된 캘리브레이션 사용 — 초기화 단계 건너뜀")
+            else:
+                self._do_tare(ser)
+                self._do_scale_calib(ser, pop_kg=22.0)
             print("[INFO] 게임 시작!")
 
             interval = 1.0 / SAMPLE_RATE_HZ

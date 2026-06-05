@@ -15,10 +15,14 @@ Mock 조작:
 """
 
 import sys
+import os
 import time
 import pygame
 
-from sensor     import MockGripSensor, RealGripSensor, ArduinoGripSensor
+# 공통 센서 모듈 import (프로젝트 루트 추가)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from common.sensor import MockGripSensor, RealGripSensor, ArduinoGripSensor
+
 from game_logic import BalloonGame, GameConfig, HandState
 from renderer   import GameRenderer
 
@@ -50,7 +54,7 @@ def main():
         pygame.NOFRAME if USE_REAL_SENSOR else 0,   # Pi에선 전체화면 테두리 없이
     )
 
-    clock    = pygame.time.Clock()
+    clock = pygame.time.Clock()
     if USE_ARDUINO:
         sensor = ArduinoGripSensor()
     elif USE_REAL_SENSOR:
