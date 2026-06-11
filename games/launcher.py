@@ -7,7 +7,7 @@ launcher.py
     오른손 0.5초 유지 → 커서 오른쪽 이동
     양손 동시 0.5초  → 선택 실행
 
-버튼: 풍선 키우기 / 두더지 잡기 / 나가기
+버튼: 풍선 키우기 / 두더지 잡기 / 우주 조종 / 나가기
 
 실행:
     python launcher.py           # Mock 모드
@@ -48,6 +48,14 @@ GAMES = [
         "path":   "Whack-A-Mole/main.py",
         "color":  ( 68, 153, 255),
         "border": ( 20,  80, 200),
+    },
+    {
+        "label":  "우주 조종",
+        "desc":   "두 손의 힘 차이로\n우주선을 조종해요",
+        "icon":   "rocket",
+        "path":   "steering_game/main.py",
+        "color":  (120,  80, 220),
+        "border": ( 70,  30, 160),
     },
     {
         "label":  "나가기",
@@ -131,9 +139,9 @@ def _draw_clouds(surface):
 
 class Launcher:
 
-    CARD_W   = 215
+    CARD_W   = 178
     CARD_H   = 228
-    CARD_GAP = 14
+    CARD_GAP = 10
     CARD_Y   = 68
 
     def __init__(self, screen, sensor, cooldown: float = 0.0):
@@ -335,6 +343,26 @@ class Launcher:
             pygame.draw.circle(sc, (255, 255, 255),   (cx - 5,  cy - 9), 1)
             pygame.draw.circle(sc, (255, 255, 255),   (cx + 7,  cy - 9), 1)
             pygame.draw.ellipse(sc, (220, 120, 120),  (cx - 4,  cy - 2, 8, 5))
+        elif icon == "rocket":
+            # 날개 (좌우)
+            pygame.draw.polygon(sc, color, [
+                (cx - 13, cy + 8), (cx - 22, cy + 22), (cx - 13, cy + 22)
+            ])
+            pygame.draw.polygon(sc, color, [
+                (cx + 13, cy + 8), (cx + 22, cy + 22), (cx + 13, cy + 22)
+            ])
+            # 몸체 (삼각형)
+            pygame.draw.polygon(sc, color, [
+                (cx, cy - 28), (cx - 13, cy + 22), (cx + 13, cy + 22)
+            ])
+            pygame.draw.polygon(sc, (255, 255, 255), [
+                (cx, cy - 28), (cx - 13, cy + 22), (cx + 13, cy + 22)
+            ], 2)
+            # 불꽃
+            pygame.draw.ellipse(sc, (255, 140, 30), (cx - 7, cy + 20, 14, 14))
+            pygame.draw.ellipse(sc, (255, 220, 80), (cx - 4, cy + 22,  8,  8))
+            # 중심선
+            pygame.draw.line(sc, (255, 255, 255), (cx, cy - 18), (cx, cy + 16), 2)
         elif icon == "exit":
             pygame.draw.circle(sc, color,            (cx, cy), 28)
             pygame.draw.circle(sc, (255, 255, 255),  (cx, cy), 28, 2)

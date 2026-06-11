@@ -42,6 +42,31 @@ long left_raw  = 0;
 long right_raw = 0;
 unsigned long last_send_ms = 0;
 
+/* 비블로킹 시리얼 수신용 버퍼 */
+static char serial_buf[8];
+static int  serial_pos = 0;
+
+void handle_serial() {
+    while (Serial.available() > 0) {
+        char c = (char)Serial.read();
+        if (c == '\n' || c == '\r') {
+            if (serial_pos == 2) {
+                char side = serial_buf[0];
+                char val  = serial_buf[1];
+                if      (side == 'L' && val == '1') digitalWrite(LEFT_VIB,  HIGH);
+                else if (side == 'L' && val == '0') digitalWrite(LEFT_VIB,  LOW);
+                else if (side == 'R' && val == '1') digitalWrite(RIGHT_VIB, HIGH);
+                else if (side == 'R' && val == '0') digitalWrite(RIGHT_VIB, LOW);
+            }
+            serial_pos = 0;
+        } else if (serial_pos < 7) {
+            serial_buf[serial_pos++] = c;
+        } else {
+            serial_pos = 0;
+        }
+    }
+}
+
 void setup() {
     Serial.begin(BAUD_RATE);
 
@@ -78,15 +103,7 @@ void loop() {
      *       "R1\n"  → 오른쪽 ON
      *       "R0\n"  → 오른쪽 OFF
      */
-    if (Serial.available() > 0) {
-        String cmd = Serial.readStringUntil('\n');
-        cmd.trim();
-
-        if      (cmd == "L1") digitalWrite(LEFT_VIB,  HIGH);
-        else if (cmd == "L0") digitalWrite(LEFT_VIB,  LOW);
-        else if (cmd == "R1") digitalWrite(RIGHT_VIB, HIGH);
-        else if (cmd == "R0") digitalWrite(RIGHT_VIB, LOW);
-    }
+    handle_serial();
 
     /* 10ms마다 악력 데이터 전송 */
     unsigned long now = millis();
