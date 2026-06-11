@@ -57,6 +57,29 @@ def main():
 
     logic    = WhackAMoleLogic()
     renderer = Renderer(screen)
+
+    # ── 카운트다운 ────────────────────────────────────────────────────────
+    font_cd = renderer.font_lg
+    countdown = [("3", (80, 80, 80)), ("2", (80, 80, 80)), ("1", (80, 80, 80)), ("시작!", (34, 139, 34))]
+    for text, color in countdown:
+        start = time.time()
+        while time.time() - start < 0.8:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    sensor.stop(); pygame.quit(); sys.exit(0)
+                if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_q):
+                    sensor.stop(); pygame.quit(); sys.exit(0)
+            renderer.draw(logic, 0, 0, 0)
+            overlay = pygame.Surface((W, H), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 120))
+            screen.blit(overlay, (0, 0))
+            txt = font_cd.render(text, True, color)
+            screen.blit(txt, (W // 2 - txt.get_width() // 2, H // 2 - txt.get_height() // 2))
+            pygame.display.flip()
+            clock.tick(FPS)
+
+    logic.start()
+
     running  = True
 
     while running:
@@ -70,9 +93,6 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key in (pygame.K_ESCAPE, pygame.K_q):
                     running = False
-                elif event.key == pygame.K_SPACE:
-                    if not logic.state.running:
-                        logic.start()
                 elif event.key == pygame.K_r:
                     logic.start()
                 elif isinstance(sensor, MockGripSensor):

@@ -95,6 +95,12 @@ def main():
             pygame.display.flip()
             clock.tick(FPS)
 
+    # 종료 제스처: 양손 동시 목표 구간 2회 더블 펌프 (2초 내)
+    EXIT_THRESHOLD  = CONFIG.target_kg - CONFIG.tolerance_kg
+    EXIT_WINDOW_SEC = 2.0
+    exit_pulse_times: list[float] = []
+    prev_both_high  = False
+
     # 상태 전환 추적용
     prev_l_popped    = False
     prev_r_popped    = False
@@ -130,6 +136,18 @@ def main():
 
         if game.is_over:
             running = False
+
+        # ── 종료 제스처: 양손 더블 펌프 ──────────────────────────────────
+        both_high = (reading.left_kg  >= EXIT_THRESHOLD and
+                     reading.right_kg >= EXIT_THRESHOLD)
+        if both_high and not prev_both_high:          # 상승 엣지
+            now = time.time()
+            exit_pulse_times = [t for t in exit_pulse_times
+                                 if now - t <= EXIT_WINDOW_SEC]
+            exit_pulse_times.append(now)
+            if len(exit_pulse_times) >= 2:
+                running = False
+        prev_both_high = both_high
 
         # 상태 전환 감지
         l_popped    = game.left.state  == HandState.POPPED

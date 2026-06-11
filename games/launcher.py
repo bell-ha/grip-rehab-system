@@ -3,9 +3,9 @@ launcher.py
 게임 선택 메뉴 — 악력으로 조작
 
 조작법:
-    왼손 2초 유지  → 커서 왼쪽 이동
-    오른손 2초 유지 → 커서 오른쪽 이동
-    양손 동시 2초  → 선택 실행
+    왼손 0.5초 유지  → 커서 왼쪽 이동
+    오른손 0.5초 유지 → 커서 오른쪽 이동
+    양손 동시 0.5초  → 선택 실행
 
 버튼: 풍선 키우기 / 두더지 잡기 / 나가기
 
@@ -36,7 +36,7 @@ GAMES = [
     {
         "label":  "풍선 키우기",
         "desc":   "목표 악력을 유지해서\n풍선을 키워요",
-        "emoji":  "🎈",
+        "icon":   "balloon",
         "path":   "balloon_game/main.py",
         "color":  (255, 153,  51),
         "border": (200,  64,   0),
@@ -44,7 +44,7 @@ GAMES = [
     {
         "label":  "두더지 잡기",
         "desc":   "두더지가 나타나면\n해당 손으로 잡아요",
-        "emoji":  "🐭",
+        "icon":   "mole",
         "path":   "Whack-A-Mole/main.py",
         "color":  ( 68, 153, 255),
         "border": ( 20,  80, 200),
@@ -52,7 +52,7 @@ GAMES = [
     {
         "label":  "나가기",
         "desc":   "게임을 종료합니다",
-        "emoji":  "👋",
+        "icon":   "exit",
         "path":   None,
         "color":  (160, 160, 170),
         "border": (100, 100, 115),
@@ -136,7 +136,7 @@ class Launcher:
     CARD_GAP = 14
     CARD_Y   = 68
 
-    def __init__(self, screen, sensor):
+    def __init__(self, screen, sensor, cooldown: float = 0.0):
         self.screen  = screen
         self.sensor  = sensor
         self.cursor  = 0
@@ -145,7 +145,8 @@ class Launcher:
         self.left_held_t  = 0.0
         self.right_held_t = 0.0
         self.both_held_t  = 0.0
-        self._moved = False
+        self._moved   = False
+        self._cooldown = cooldown   # 이 시간 동안 입력 무시
 
         pygame.font.init()
         self.fn_title = _load_font(34)
@@ -153,7 +154,6 @@ class Launcher:
         self.fn_label = _load_font(27)
         self.fn_desc  = _load_font(17)
         self.fn_hint  = _load_font(15)
-        self.fn_emoji = _load_font(46)
         self.fn_val   = _load_font(19)
 
         total = self.n * self.CARD_W + (self.n - 1) * self.CARD_GAP
@@ -185,6 +185,12 @@ class Launcher:
                 if event.type == pygame.KEYUP:
                     if isinstance(self.sensor, MockGripSensor):
                         self.sensor.handle_keyup(event.key)
+
+            if self._cooldown > 0:
+                self._cooldown -= dt
+                self._draw(0, 0, False, False, False)
+                pygame.display.flip()
+                continue
 
             reading = self.sensor.get()
             left_kg, right_kg = reading.left_kg, reading.right_kg
@@ -255,7 +261,7 @@ class Launcher:
         hint_band.fill((255, 255, 255, 160))
         sc.blit(hint_band, (0, H - 36))
         hint = self.fn_hint.render(
-            "왼손 2초 → 왼쪽 이동   │   오른손 2초 → 오른쪽 이동   │   양손 2초 → 선택",
+            "왼손 0.5초 → 왼쪽 이동   │   오른손 0.5초 → 오른쪽 이동   │   양손 0.5초 → 선택",
             True, MUTED,
         )
         sc.blit(hint, (W // 2 - hint.get_width() // 2, H - 24))
@@ -284,9 +290,8 @@ class Launcher:
         pygame.draw.rect(card_surf, border_col, (0, 0, w, h), border_w, border_radius=r)
         sc.blit(card_surf, (x, y))
 
-        # 이모지
-        em = self.fn_emoji.render(game["emoji"], True, TEXT_MAIN)
-        sc.blit(em, (x + w // 2 - em.get_width() // 2, y + 16))
+        # 아이콘
+        self._draw_icon(sc, game["icon"], game["color"], x + w // 2, y + 46)
 
         # 라벨
         label_col = game["border"] if sel else TEXT_MAIN
@@ -311,6 +316,30 @@ class Launcher:
             fw = int(bw2 * ratio)
             if fw > 0:
                 pygame.draw.rect(sc, BAR_BOTH, (bx, by2, fw, 8), border_radius=4)
+
+    def _draw_icon(self, sc, icon: str, color, cx: int, cy: int):
+        if icon == "balloon":
+            pygame.draw.ellipse(sc, color,           (cx - 22, cy - 28, 44, 52))
+            pygame.draw.ellipse(sc, (255, 255, 255), (cx - 22, cy - 28, 44, 52), 2)
+            hl = pygame.Surface((12, 8), pygame.SRCALPHA)
+            pygame.draw.ellipse(hl, (255, 255, 255, 160), hl.get_rect())
+            sc.blit(hl, (cx - 16, cy - 22))
+            pygame.draw.arc(sc, color, (cx - 4, cy + 24, 8, 6), 0, math.pi, 2)
+            pygame.draw.line(sc, (160, 130, 100), (cx, cy + 30), (cx, cy + 38), 1)
+        elif icon == "mole":
+            pygame.draw.ellipse(sc, (130, 90, 50),   (cx - 24, cy + 10, 48, 18))
+            pygame.draw.ellipse(sc, color,            (cx - 18, cy - 20, 36, 34))
+            pygame.draw.ellipse(sc, (255, 255, 255),  (cx - 18, cy - 20, 36, 34), 2)
+            pygame.draw.circle(sc, (40, 20, 10),      (cx - 6,  cy - 8), 4)
+            pygame.draw.circle(sc, (40, 20, 10),      (cx + 6,  cy - 8), 4)
+            pygame.draw.circle(sc, (255, 255, 255),   (cx - 5,  cy - 9), 1)
+            pygame.draw.circle(sc, (255, 255, 255),   (cx + 7,  cy - 9), 1)
+            pygame.draw.ellipse(sc, (220, 120, 120),  (cx - 4,  cy - 2, 8, 5))
+        elif icon == "exit":
+            pygame.draw.circle(sc, color,            (cx, cy), 28)
+            pygame.draw.circle(sc, (255, 255, 255),  (cx, cy), 28, 2)
+            pygame.draw.line(sc, (255, 255, 255), (cx - 12, cy - 12), (cx + 12, cy + 12), 4)
+            pygame.draw.line(sc, (255, 255, 255), (cx + 12, cy - 12), (cx - 12, cy + 12), 4)
 
     def _draw_grip_bars(self, sc, left_kg, right_kg, left_only, right_only, both):
         # 반투명 패널 배경
@@ -395,8 +424,9 @@ def main():
 
     sensor.start()
 
+    cooldown = 0.0
     while True:
-        launcher = Launcher(screen, sensor)
+        launcher = Launcher(screen, sensor, cooldown=cooldown)
         choice   = launcher.run()
 
         if choice is None or GAMES[choice]["path"] is None:
@@ -405,9 +435,10 @@ def main():
         game_path = os.path.join(os.path.dirname(__file__), GAMES[choice]["path"])
         arg = "--real" if USE_REAL else "--arduino"
         cmd = [sys.executable, game_path, arg]
-        sensor.stop()          # 포트 해제
+        sensor.stop()
         subprocess.run(cmd)
-        sensor.start()         # 포트 재점유
+        sensor.start()
+        cooldown = 2.0   # 게임 종료 직후 입력 무시
 
     sensor.stop()
     pygame.quit()
