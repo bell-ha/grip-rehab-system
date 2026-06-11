@@ -38,27 +38,20 @@ def main():
     clock  = pygame.time.Clock()
 
     # ── 센서 선택 ──────────────────────────────────────────────────────────
-    if args.arduino:
-        print("[센서] Arduino 자동 감지 모드 (raw ADC + 자동 캘리브레이션)")
-        try:
-            sensor = ArduinoGripSensor(port=args.port)
-        except Exception as e:
-            print(f"[센서] Arduino 연결 실패: {e}")
-            print("[센서] Mock 모드로 전환합니다.")
-            sensor = MockGripSensor()
-
-    elif args.real:
+    if args.real:
         print("[센서] Raspberry Pi HX711 직결 모드")
         try:
             sensor = RealGripSensor()
         except Exception as e:
-            print(f"[센서] 연결 실패: {e}")
-            print("[센서] Mock 모드로 전환합니다.")
+            print(f"[센서] 연결 실패: {e} → Mock 모드")
             sensor = MockGripSensor()
-
     else:
-        print("[센서] Mock 모드  |  A/S = 왼손   K/L = 오른손")
-        sensor = MockGripSensor()
+        try:
+            sensor = ArduinoGripSensor(port=args.port)
+            print("[센서] Arduino 연결됨")
+        except Exception as e:
+            print(f"[센서] Arduino 감지 실패: {e} → Mock 모드  |  A/S = 왼손   K/L = 오른손")
+            sensor = MockGripSensor()
 
     sensor.start()
 
@@ -96,10 +89,17 @@ def main():
         # ── 게임 로직 ────────────────────────────────────────────────────
         events = logic.update(dt, left_kg, right_kg)
 
-        # 두더지 정리 (딜레이 후 슬롯 비우기)
+        # 두더지 정리 (딜레이 후 슬롯 비우기) + 진동 피드백
         for ev in events:
             if ev.startswith("hit:"):
                 i = int(ev.split(":")[1])
+                mole = logic.state.moles[i]
+                if mole is not None:
+                    sensor.vibrate_pulse(
+                        left   = mole.kind in ('left',  'both'),
+                        right  = mole.kind in ('right', 'both'),
+                        duration = 0.2,
+                    )
                 threading.Thread(
                     target=lambda idx=i: (time.sleep(0.28), logic.clear_mole(idx)),
                     daemon=True,

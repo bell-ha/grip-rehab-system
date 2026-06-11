@@ -35,9 +35,9 @@ USE_ARDUINO     = "--arduino" in sys.argv
 FPS = 60
 
 CONFIG = GameConfig(
-    target_kg    = 15.0,
-    pop_kg       = 22.0,
-    tolerance_kg = 5.0,
+    target_kg    = 10.0,
+    pop_kg       = 15.0,
+    tolerance_kg = 3.0,
     success_sec  = 3.0,
     pop_reset_sec= 1.5,
 )
@@ -55,20 +55,53 @@ def main():
     )
 
     clock = pygame.time.Clock()
-    if USE_ARDUINO:
-        sensor = ArduinoGripSensor()
-    elif USE_REAL_SENSOR:
-        sensor = RealGripSensor()
+    if USE_REAL_SENSOR:
+        try:
+            sensor = RealGripSensor()
+        except Exception as e:
+            print(f"[센서] 연결 실패: {e} → Mock 모드")
+            sensor = MockGripSensor()
     else:
-        sensor = MockGripSensor()
+        try:
+            sensor = ArduinoGripSensor()
+        except Exception as e:
+            print(f"[센서] Arduino 감지 실패: {e} → Mock 모드")
+            sensor = MockGripSensor()
     game     = BalloonGame(CONFIG)
     renderer = GameRenderer(CONFIG)
 
     sensor.start()
 
-    # 펑 이벤트 → 파티클 스폰 추적용
-    prev_l_popped = False
-    prev_r_popped = False
+    # ── 카운트다운 ────────────────────────────────────────────────────────
+    font_cd   = renderer.font_large
+    font_go   = renderer.font_title
+    countdown = [("3", (80, 80, 80)), ("2", (80, 80, 80)), ("1", (80, 80, 80)), ("시작!", (34, 139, 34))]
+    for text, color in countdown:
+        start = time.time()
+        while time.time() - start < 0.8:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    sensor.stop(); pygame.quit(); sys.exit(0)
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    sensor.stop(); pygame.quit(); sys.exit(0)
+            renderer.draw(screen, game, 0)
+            overlay = pygame.Surface((GameRenderer.SCREEN_W, GameRenderer.SCREEN_H), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 120))
+            screen.blit(overlay, (0, 0))
+            f = font_go if text == "시작!" else font_cd
+            txt = f.render(text, True, color)
+            screen.blit(txt, (GameRenderer.SCREEN_W // 2 - txt.get_width() // 2,
+                               GameRenderer.SCREEN_H // 2 - txt.get_height() // 2))
+            pygame.display.flip()
+            clock.tick(FPS)
+
+    # 상태 전환 추적용
+    prev_l_popped    = False
+    prev_r_popped    = False
+    prev_l_on_target = False
+    prev_r_on_target = False
+    prev_l_success   = 0
+    prev_r_success   = 0
 
     running = True
     while running:
@@ -84,30 +117,57 @@ def main():
                     running = False
                 elif event.key == pygame.K_r:
                     game = BalloonGame(CONFIG)
-                elif not USE_REAL_SENSOR and not USE_ARDUINO:
+                elif isinstance(sensor, MockGripSensor):
                     sensor.handle_keydown(event.key)
 
             elif event.type == pygame.KEYUP:
-                if not USE_REAL_SENSOR and not USE_ARDUINO:
+                if isinstance(sensor, MockGripSensor):
                     sensor.handle_keyup(event.key)
 
         # ── 센서 읽기 + 게임 업데이트 ────────────────────────────────────
         reading = sensor.get()
-        game.update(reading.left_kg, reading.right_kg)
+        game.update(reading.left_kg, reading.right_kg, dt)
 
-        # 펑 발생 감지 → 파티클 스폰
-        if game.left.state == HandState.POPPED and not prev_l_popped:
+        if game.is_over:
+            running = False
+
+        # 상태 전환 감지
+        l_popped    = game.left.state  == HandState.POPPED
+        r_popped    = game.right.state == HandState.POPPED
+        l_on_target = game.left.state  == HandState.ON_TARGET
+        r_on_target = game.right.state == HandState.ON_TARGET
+
+        # 펑 발생 → 파티클 스폰 + 진동
+        if l_popped and not prev_l_popped:
             lx = renderer.L_PANEL_X + GameRenderer.BALLOON_CX
             ly = renderer.PANEL_Y   + GameRenderer.BALLOON_CY
             renderer.spawn_pop(lx, ly, is_left=True)
+            sensor.vibrate_pulse(left=True, right=False, duration=0.4)
 
-        if game.right.state == HandState.POPPED and not prev_r_popped:
+        if r_popped and not prev_r_popped:
             rx = renderer.R_PANEL_X + GameRenderer.BALLOON_CX
             ry = renderer.PANEL_Y   + GameRenderer.BALLOON_CY
             renderer.spawn_pop(rx, ry, is_left=False)
+            sensor.vibrate_pulse(left=False, right=True, duration=0.4)
 
-        prev_l_popped = (game.left.state  == HandState.POPPED)
-        prev_r_popped = (game.right.state == HandState.POPPED)
+        # 목표 압력 진입 → 짧은 진동 (잘 쥐고 있다는 피드백)
+        if l_on_target and not prev_l_on_target:
+            sensor.vibrate_pulse(left=True, right=False, duration=0.15)
+        if r_on_target and not prev_r_on_target:
+            sensor.vibrate_pulse(left=False, right=True, duration=0.15)
+
+        # 유지 성공 → 양손 진동 (성취감 피드백)
+        if game.left.success_count  > prev_l_success:
+            sensor.vibrate_pulse(left=True, right=False, duration=0.6)
+        if game.right.success_count > prev_r_success:
+            sensor.vibrate_pulse(left=False, right=True, duration=0.6)
+
+        prev_l_popped    = l_popped
+        prev_r_popped    = r_popped
+        prev_l_on_target = l_on_target
+        prev_r_on_target = r_on_target
+        prev_l_success   = game.left.success_count
+        prev_r_success   = game.right.success_count
 
         # ── 렌더링 ────────────────────────────────────────────────────────
         renderer.draw(screen, game, dt)

@@ -139,7 +139,7 @@ class BalloonRenderer:
                             target_rect, width=2, dash_len=8, gap_len=6)
 
         label_alpha = 100 if reached else 220
-        lbl = font_small.render(f"{target_kg:.0f} kg", True, self.target_color)
+        lbl = font_small.render(f"{target_kg:.0f}", True, self.target_color)
         lbl.set_alpha(label_alpha)
         surface.blit(lbl, (self.cx - lbl.get_width() // 2,
                             self.cy - try_ - 22))
@@ -364,6 +364,7 @@ class GameRenderer:
             p.draw(surface)
 
         self._draw_score(surface, game)
+        self._draw_timer(surface, game)
 
     # ── 헤더 ─────────────────────────────────────────────────────────────────
 
@@ -377,7 +378,7 @@ class GameRenderer:
         surface.blit(txt, (self.SCREEN_W // 2 - txt.get_width() // 2, 8))
 
         sub = self.font_tip.render(
-            f"목표: {self.cfg.target_kg:.0f} kg 를 {self.cfg.success_sec:.0f}초 유지하면 성공!",
+            f"목표: {self.cfg.target_kg:.0f} 를 {self.cfg.success_sec:.0f}초 유지하면 성공!",
             True, Color.TEXT_SECONDARY,
         )
         surface.blit(sub, (self.SCREEN_W // 2 - sub.get_width() // 2, 42))
@@ -414,7 +415,7 @@ class GameRenderer:
         surf.blit(lbl, (self.PANEL_W // 2 - lbl.get_width() // 2, 10))
 
         # 현재 악력 수치
-        kg_txt = self.font_large.render(f"{hand.grip_kg:.1f} kg", True, Color.TEXT_PRIMARY)
+        kg_txt = self.font_large.render(f"{hand.grip_kg:.1f}", True, Color.TEXT_PRIMARY)
         kg_y = self.BALLOON_CY + self.MAX_RY + 12
         surf.blit(kg_txt, (self.PANEL_W // 2 - kg_txt.get_width() // 2, kg_y))
 
@@ -451,11 +452,17 @@ class GameRenderer:
         draw_rounded_rect(surf, Color.PANEL_BORDER, bg_rect,   radius=4)
         draw_rounded_rect(surf, Color.GOOD_TEXT,    fill_rect, radius=4)
 
+    def _draw_timer(self, surface, game: BalloonGame):
+        secs = int(math.ceil(game.time_left))
+        color = (200, 40, 40) if secs <= 10 else Color.TEXT_PRIMARY
+        txt = self.font_title.render(f"⏱ {secs}", True, color)
+        surface.blit(txt, (self.SCREEN_W - txt.get_width() - 16, 8))
+
     def _draw_score(self, surface, game: BalloonGame):
         items = [
             ("성공",      str(game.total_success)),
             ("펑!",       str(game.total_pop)),
-            ("왼손 최고", f"{game.left.grip_kg:.1f} kg"),
+            ("왼손 최고", f"{game.left.grip_kg:.1f}"),
         ]
         total_w = 600
         start_x = self.SCREEN_W // 2 - total_w // 2

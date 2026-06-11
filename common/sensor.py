@@ -8,6 +8,7 @@ ArduinoGripSensor : Arduino USB 시리얼용 — "raw1,raw2" 포맷 수신
 """
 
 from __future__ import annotations
+import queue
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -23,6 +24,7 @@ SPIKE_THRESHOLD  = 8.0     # 이전 값 대비 8 kg 이상 급변 → 스파이�
 MEDIAN_N         = 3       # 중간값 필터 윈도우
 MOVING_AVG_N     = 5       # 이동평균 필터 윈도우
 MOCK_STEP_KG     = 1.0     # Mock에서 키 1회 = 1 kg 변화량
+MOCK_FILL_RATE   = 9.0     # Mock에서 키 누르고 있을 때 증가 속도 (kg/s)
 MOCK_DECAY_HZ    = 8       # Mock에서 손 떼면 초당 감소량 (kg/s)
 
 
@@ -97,6 +99,18 @@ class GripSensor(ABC):
         with self._lock:
             self._reading = GripReading(left, right)
 
+    def vibrate(self, left: bool, right: bool):
+        """진동 피드백 설정 (서브클래스에서 구현)"""
+        pass
+
+    def vibrate_pulse(self, left: bool, right: bool, duration: float = 0.3):
+        """duration초 동안 진동 후 자동 OFF"""
+        self.vibrate(left, right)
+        def _off():
+            time.sleep(duration)
+            self.vibrate(False, False)
+        threading.Thread(target=_off, daemon=True).start()
+
     @abstractmethod
     def _loop(self): ...
 
@@ -148,15 +162,20 @@ class MockGripSensor(GripSensor):
         self._right_target = max(0.0, min(30.0, right_kg))
 
     def _loop(self):
-        interval = 1.0 / SAMPLE_RATE_HZ
-        decay    = MOCK_DECAY_HZ / SAMPLE_RATE_HZ  # 한 틱당 감소량
+        interval  = 1.0 / SAMPLE_RATE_HZ
+        decay     = MOCK_DECAY_HZ   / SAMPLE_RATE_HZ
+        fill_step = MOCK_FILL_RATE  / SAMPLE_RATE_HZ
 
         while self._running:
-            # 손 떼면 자연 감소
-            if not self._left_held:
-                self._left_target  = max(0.0, self._left_target  - decay)
-            if not self._right_held:
-                self._right_target = max(0.0, self._right_target - decay)
+            if self._left_held:
+                self._left_target  = min(30.0, self._left_target  + fill_step)
+            else:
+                self._left_target  = max(0.0,  self._left_target  - decay)
+
+            if self._right_held:
+                self._right_target = min(30.0, self._right_target + fill_step)
+            else:
+                self._right_target = max(0.0,  self._right_target - decay)
 
             lf = self._filter_l.process(self._left_target)
             rf = self._filter_r.process(self._right_target)
@@ -276,8 +295,13 @@ class ArduinoGripSensor(GripSensor):
         self._scale_r    = 1.0
         self._calibrated = False
         self._port       = port or _find_arduino_port()
+        self._vib_queue: queue.Queue[bytes] = queue.Queue()
         print(f"[INFO] 아두이노 감지: {self._port}")
         self._load_calibration()
+
+    def vibrate(self, left: bool, right: bool):
+        self._vib_queue.put(b'L1\n' if left  else b'L0\n')
+        self._vib_queue.put(b'R1\n' if right else b'R0\n')
 
     def _load_calibration(self):
         import json, os
@@ -352,6 +376,13 @@ class ArduinoGripSensor(GripSensor):
 
             interval = 1.0 / SAMPLE_RATE_HZ
             while self._running:
+                # 진동 명령 전송 (메인 스레드에서 enqueue된 것)
+                while not self._vib_queue.empty():
+                    try:
+                        ser.write(self._vib_queue.get_nowait())
+                    except queue.Empty:
+                        break
+
                 if ser.in_waiting:
                     pair = self._read_raw(ser)
                     if pair:

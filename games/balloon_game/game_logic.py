@@ -20,6 +20,7 @@ class GameConfig:
     success_sec:  float = 3.0    # 성공 인정 유지 시간
     rounds:       int   = 5      # 라운드 수
     pop_reset_sec: float = 1.5   # 펑 후 리셋 대기 시간
+    game_duration: float = 60.0  # 제한 시간 (초)
 
 
 # ── 핸드 상태 ─────────────────────────────────────────────────────────────────
@@ -65,10 +66,18 @@ class BalloonGame:
         self.right = HandData()
         self.game_state = GameState.TUTORIAL
         self.session_start = time.time()
+        self.time_left = self.cfg.game_duration
+
+    @property
+    def is_over(self) -> bool:
+        return self.time_left <= 0.0
 
     # ── 매 프레임 호출 ──────────────────────────────────────────────────────
 
-    def update(self, left_kg: float, right_kg: float):
+    def update(self, left_kg: float, right_kg: float, dt: float = 0.0):
+        if self.is_over:
+            return
+        self.time_left = max(0.0, self.time_left - dt)
         now = time.time()
         self._update_hand(self.left,  left_kg,  now)
         self._update_hand(self.right, right_kg, now)

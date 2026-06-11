@@ -22,14 +22,14 @@ import time
 import subprocess
 import pygame
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from common.sensor import MockGripSensor, RealGripSensor, ArduinoGripSensor
 
 # ── 설정 ──────────────────────────────────────────────────────────────────────
 
 W, H         = 800, 480
 FPS          = 60
-HOLD_SEC     = 2.0
+HOLD_SEC     = 0.3
 THRESHOLD_KG = 6.0
 
 GAMES = [
@@ -37,7 +37,7 @@ GAMES = [
         "label":  "풍선 키우기",
         "desc":   "목표 악력을 유지해서\n풍선을 키워요",
         "emoji":  "🎈",
-        "path":   "games/balloon_game/main.py",
+        "path":   "balloon_game/main.py",
         "color":  (255, 153,  51),
         "border": (200,  64,   0),
     },
@@ -45,7 +45,7 @@ GAMES = [
         "label":  "두더지 잡기",
         "desc":   "두더지가 나타나면\n해당 손으로 잡아요",
         "emoji":  "🐭",
-        "path":   "games/Whack-A-Mole/main.py",
+        "path":   "Whack-A-Mole/main.py",
         "color":  ( 68, 153, 255),
         "border": ( 20,  80, 200),
     },
@@ -172,6 +172,8 @@ class Launcher:
                 if event.type == pygame.QUIT:
                     return None
                 if event.type == pygame.KEYDOWN:
+                    if isinstance(self.sensor, MockGripSensor):
+                        self.sensor.handle_keydown(event.key)
                     if event.key == pygame.K_ESCAPE:
                         return None
                     if event.key == pygame.K_LEFT:
@@ -180,11 +182,12 @@ class Launcher:
                         self.cursor = (self.cursor + 1) % self.n
                     if event.key == pygame.K_RETURN:
                         return self.cursor
+                if event.type == pygame.KEYUP:
+                    if isinstance(self.sensor, MockGripSensor):
+                        self.sensor.handle_keyup(event.key)
 
-            if isinstance(self.sensor, MockGripSensor):
-                keys = pygame.key.get_pressed()
-                self.sensor.update(keys)
-            left_kg, right_kg = self.sensor.get_grip()
+            reading = self.sensor.get()
+            left_kg, right_kg = reading.left_kg, reading.right_kg
 
             both       = left_kg >= THRESHOLD_KG and right_kg >= THRESHOLD_KG
             left_only  = left_kg  >= THRESHOLD_KG and not both
@@ -377,20 +380,18 @@ def main():
     screen = pygame.display.set_mode((W, H))
     pygame.display.set_caption("악력 재활 게임")
 
-    if USE_ARDUINO:
-        try:
-            sensor = ArduinoGripSensor()
-        except Exception as e:
-            print(f"[센서] Arduino 연결 실패: {e} → Mock 모드")
-            sensor = MockGripSensor()
-    elif USE_REAL:
+    if USE_REAL:
         try:
             sensor = RealGripSensor()
         except Exception as e:
             print(f"[센서] 연결 실패: {e} → Mock 모드")
             sensor = MockGripSensor()
     else:
-        sensor = MockGripSensor()
+        try:
+            sensor = ArduinoGripSensor()
+        except Exception as e:
+            print(f"[센서] Arduino 감지 실패: {e} → Mock 모드")
+            sensor = MockGripSensor()
 
     sensor.start()
 
@@ -402,9 +403,11 @@ def main():
             break
 
         game_path = os.path.join(os.path.dirname(__file__), GAMES[choice]["path"])
-        arg = "--arduino" if USE_ARDUINO else ("--real" if USE_REAL else "")
-        cmd = [sys.executable, game_path] + ([arg] if arg else [])
+        arg = "--real" if USE_REAL else "--arduino"
+        cmd = [sys.executable, game_path, arg]
+        sensor.stop()          # 포트 해제
         subprocess.run(cmd)
+        sensor.start()         # 포트 재점유
 
     sensor.stop()
     pygame.quit()
