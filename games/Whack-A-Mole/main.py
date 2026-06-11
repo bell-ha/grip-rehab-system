@@ -80,6 +80,12 @@ def main():
 
     logic.start()
 
+    # 종료 제스처: 양손 더블 펌프 (2초 내 2회)
+    from game_logic import THRESHOLD_KG as HIT_KG
+    EXIT_WINDOW_SEC  = 2.0
+    exit_pulse_times: list[float] = []
+    prev_both_high   = False
+
     running  = True
 
     while running:
@@ -105,6 +111,16 @@ def main():
         # ── 센서 읽기 ────────────────────────────────────────────────────
         reading = sensor.get()
         left_kg, right_kg = reading.left_kg, reading.right_kg
+
+        # ── 양손 더블 펌프 → 종료 ────────────────────────────────────────
+        both_high = left_kg >= HIT_KG and right_kg >= HIT_KG
+        if both_high and not prev_both_high:
+            now = time.time()
+            exit_pulse_times = [t for t in exit_pulse_times if now - t <= EXIT_WINDOW_SEC]
+            exit_pulse_times.append(now)
+            if len(exit_pulse_times) >= 2:
+                running = False
+        prev_both_high = both_high
 
         # ── 게임 로직 ────────────────────────────────────────────────────
         events = logic.update(dt, left_kg, right_kg)

@@ -74,17 +74,23 @@ class WhackAMoleLogic:
         2: ['right'],
     }
 
+    RELEASE_KG = THRESHOLD_KG * 0.5   # 이 아래로 내려오면 재무장
+
     def __init__(self):
         self.state = GameState()
-        self._spawn_cooldown = 0.0   # 다음 스폰까지 대기 시간
+        self._spawn_cooldown = 0.0
         self._spawn_timer    = 0.0
+        self._left_armed  = True   # 왼손 히트 가능
+        self._right_armed = True   # 오른손 히트 가능
 
     # ── 공개 API ──────────────────────────────
 
     def start(self):
         self.state = GameState(running=True, time_left=GAME_DURATION)
         self._spawn_timer    = 0.0
-        self._spawn_cooldown = 0.8   # 첫 등장까지 여유
+        self._spawn_cooldown = 0.8
+        self._left_armed  = True
+        self._right_armed = True
 
     def update(self, dt: float, left_kg: float, right_kg: float) -> list[str]:
         """
@@ -116,20 +122,30 @@ class WhackAMoleLogic:
             progress = 1.0 - s.time_left / GAME_DURATION
             self._spawn_cooldown = max(0.6, 1.8 - progress * 1.0)
 
+        # 손 재무장 (임계값 아래로 내려오면 다시 히트 가능)
+        if left_kg  < self.RELEASE_KG:
+            self._left_armed  = True
+        if right_kg < self.RELEASE_KG:
+            self._right_armed = True
+
         # 두더지 상태 처리
         for i, mole in enumerate(s.moles):
             if mole is None or mole.status != MoleStatus.UP:
                 continue
 
-            # 잡기 판정
+            # 잡기 판정 (상승 엣지만 인정)
             triggered = False
-            if mole.kind == 'left'  and left_kg  >= THRESHOLD_KG:
+            if mole.kind == 'left' and left_kg >= THRESHOLD_KG and self._left_armed:
                 triggered = True
-            if mole.kind == 'right' and right_kg >= THRESHOLD_KG:
+                self._left_armed = False
+            elif mole.kind == 'right' and right_kg >= THRESHOLD_KG and self._right_armed:
                 triggered = True
-            if mole.kind == 'both'  and left_kg  >= THRESHOLD_KG \
-                                     and right_kg >= THRESHOLD_KG:
+                self._right_armed = False
+            elif mole.kind == 'both' and left_kg >= THRESHOLD_KG and right_kg >= THRESHOLD_KG \
+                    and self._left_armed and self._right_armed:
                 triggered = True
+                self._left_armed  = False
+                self._right_armed = False
 
             if triggered:
                 mole.status = MoleStatus.HIT
