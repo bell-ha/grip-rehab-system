@@ -1,7 +1,11 @@
-# 공통 의존성
+# 공통 의존성 (모든 플랫폼)
 pygame
 pyserial
-matplotlib
+numpy
 
-# Raspberry Pi 전용 (Pi에서만 설치)
-# hx711
+# Raspberry Pi 전용 — Pi에서만 설치
+# sudo apt-get install python3-dev
+# pip install hx711
+
+# Linux (aplay) — synthesizer 오디오
+# aplay 는 alsa-utils 패키지에 포함 (sudo apt-get install alsa-utils)
