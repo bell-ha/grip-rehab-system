@@ -405,7 +405,7 @@ class GameRenderer:
 
         # 펑 텍스트
         if hand.state == HandState.POPPED:
-            txt = self.font_large.render("펑! 💥", True, Color.DANGER_TEXT)
+            txt = self.font_large.render("펑!", True, Color.DANGER_TEXT)
             surf.blit(txt, (self.PANEL_W // 2 - txt.get_width() // 2,
                             self.BALLOON_CY - 20))
 
@@ -432,11 +432,11 @@ class GameRenderer:
 
     def _draw_status_badge(self, surf, hand: HandData, cx, y):
         state_map = {
-            HandState.IDLE:      ("  악력을 가해주세요",       Color.IDLE_BG,   Color.IDLE_TEXT),
-            HandState.FILLING:   ("💪 더 세게 쥐어주세요!",    Color.WARN_BG,   Color.WARN_TEXT),
-            HandState.ON_TARGET: ("✅ 딱 좋아요! 유지하세요",  Color.GOOD_BG,   Color.GOOD_TEXT),
-            HandState.OVER:      ("⚠️  살짝 풀어주세요",        Color.DANGER_BG, Color.DANGER_TEXT),
-            HandState.POPPED:    ("💥 펑! 잠시 기다리세요",    Color.DANGER_BG, Color.DANGER_TEXT),
+            HandState.IDLE:      ("악력을 가해주세요",       Color.IDLE_BG,   Color.IDLE_TEXT),
+            HandState.FILLING:   ("더 세게 쥐어주세요!",     Color.WARN_BG,   Color.WARN_TEXT),
+            HandState.ON_TARGET: ("딱 좋아요! 유지하세요",   Color.GOOD_BG,   Color.GOOD_TEXT),
+            HandState.OVER:      ("살짝 풀어주세요",          Color.DANGER_BG, Color.DANGER_TEXT),
+            HandState.POPPED:    ("펑! 잠시 기다리세요",      Color.DANGER_BG, Color.DANGER_TEXT),
         }
         text, bg, fg = state_map.get(hand.state, ("", Color.IDLE_BG, Color.IDLE_TEXT))
         txt = self.font_small.render(text, True, fg)
@@ -455,7 +455,7 @@ class GameRenderer:
     def _draw_timer(self, surface, game: BalloonGame):
         secs = int(math.ceil(game.time_left))
         color = (200, 40, 40) if secs <= 10 else Color.TEXT_PRIMARY
-        txt = self.font_title.render(f"⏱ {secs}", True, color)
+        txt = self.font_title.render(f"{secs}초", True, color)
         surface.blit(txt, (self.SCREEN_W - txt.get_width() - 16, 8))
 
     def _draw_score(self, surface, game: BalloonGame):

@@ -202,7 +202,7 @@ class Renderer:
 
         # 콤보
         if s.combo >= 3:
-            txt = self.font_md.render(f"🔥 {s.combo} COMBO", True, YELLOW_HI)
+            txt = self.font_md.render(f"{s.combo} COMBO!", True, YELLOW_HI)
             sc.blit(txt, (W // 2 - txt.get_width() // 2, 24))
 
     def _draw_hud_box(self, sc, x, y, w, h, label, value, col):

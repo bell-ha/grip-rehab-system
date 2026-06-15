@@ -7,7 +7,7 @@ launcher.py
     오른손 0.5초 유지 → 커서 오른쪽 이동
     양손 동시 0.5초  → 선택 실행
 
-버튼: 풍선 키우기 / 두더지 잡기 / 우주 조종 / 나가기
+버튼: 풍선 키우기 / 두더지 잡기 / 우주 조종 / 신디사이저 / 나가기
 
 실행:
     python launcher.py           # Mock 모드
@@ -24,6 +24,7 @@ import pygame
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from common.sensor import MockGripSensor, RealGripSensor, ArduinoGripSensor
+from common.sfx    import init as sfx_init, play as sfx
 
 # ── 설정 ──────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,14 @@ GAMES = [
         "path":   "steering_game/main.py",
         "color":  (120,  80, 220),
         "border": ( 70,  30, 160),
+    },
+    {
+        "label":  "신디사이저",
+        "desc":   "악력으로 음을 연주해요\n주파수가 올라가요",
+        "icon":   "synth",
+        "path":   "synthesizer/main.py",
+        "color":  (  0, 230, 160),
+        "border": (  0, 150, 100),
     },
     {
         "label":  "나가기",
@@ -139,9 +148,9 @@ def _draw_clouds(surface):
 
 class Launcher:
 
-    CARD_W   = 178
+    CARD_W   = 148
     CARD_H   = 228
-    CARD_GAP = 10
+    CARD_GAP = 6
     CARD_Y   = 68
 
     def __init__(self, screen, sensor, cooldown: float = 0.0):
@@ -160,7 +169,7 @@ class Launcher:
         self.fn_title = _load_font(34)
         self.fn_sub   = _load_font(16)
         self.fn_label = _load_font(27)
-        self.fn_desc  = _load_font(17)
+        self.fn_desc  = _load_font(14)
         self.fn_hint  = _load_font(15)
         self.fn_val   = _load_font(19)
 
@@ -227,16 +236,19 @@ class Launcher:
                 self._moved        = False
 
             if self.both_held_t >= HOLD_SEC:
+                sfx('select')
                 result  = self.cursor
                 running = False
             elif self.left_held_t >= HOLD_SEC and not self._moved:
                 self.cursor      = (self.cursor - 1) % self.n
                 self.left_held_t = 0.0
                 self._moved      = True
+                sfx('click')
             elif self.right_held_t >= HOLD_SEC and not self._moved:
                 self.cursor       = (self.cursor + 1) % self.n
                 self.right_held_t = 0.0
                 self._moved       = True
+                sfx('click')
 
             self._draw(left_kg, right_kg, left_only, right_only, both)
             pygame.display.flip()
@@ -269,7 +281,7 @@ class Launcher:
         hint_band.fill((255, 255, 255, 160))
         sc.blit(hint_band, (0, H - 36))
         hint = self.fn_hint.render(
-            "왼손 0.5초 → 왼쪽 이동   │   오른손 0.5초 → 오른쪽 이동   │   양손 0.5초 → 선택",
+            "왼손 0.5초 → 왼쪽 이동   |   오른손 0.5초 → 오른쪽 이동   |   양손 0.5초 → 선택",
             True, MUTED,
         )
         sc.blit(hint, (W // 2 - hint.get_width() // 2, H - 24))
@@ -363,6 +375,15 @@ class Launcher:
             pygame.draw.ellipse(sc, (255, 220, 80), (cx - 4, cy + 22,  8,  8))
             # 중심선
             pygame.draw.line(sc, (255, 255, 255), (cx, cy - 18), (cx, cy + 16), 2)
+        elif icon == "synth":
+            # 사인파
+            pts = [(cx - 22 + i, cy - 10 - int(13 * math.sin(i / 22.0 * math.pi * 2.5)))
+                   for i in range(45)]
+            pygame.draw.lines(sc, color, False, pts, 3)
+            # 하단 주파수 바 (스펙트럼 느낌)
+            for j, bh in enumerate([7, 13, 9, 16, 11, 17, 8]):
+                bx = cx - 21 + j * 7
+                pygame.draw.rect(sc, color, (bx, cy + 14 - bh, 5, bh), border_radius=2)
         elif icon == "exit":
             pygame.draw.circle(sc, color,            (cx, cy), 28)
             pygame.draw.circle(sc, (255, 255, 255),  (cx, cy), 28, 2)
@@ -434,7 +455,8 @@ def main():
     USE_REAL    = "--real"    in sys.argv
 
     pygame.init()
-    screen = pygame.display.set_mode((W, H))
+    sfx_init()
+    screen = pygame.display.set_mode((W, H), pygame.FULLSCREEN | pygame.SCALED)
     pygame.display.set_caption("악력 재활 게임")
 
     if USE_REAL:

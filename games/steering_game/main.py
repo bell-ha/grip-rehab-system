@@ -22,6 +22,7 @@ import pygame
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from common.sensor import MockGripSensor, RealGripSensor, ArduinoGripSensor
+from common.sfx    import init as sfx_init, play as sfx
 
 from game_logic import SteeringGame, THRESHOLD_KG, SCREEN_W, SCREEN_H
 from renderer   import SteeringRenderer
@@ -31,7 +32,8 @@ FPS = 60
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
+    sfx_init()
+    screen = pygame.display.set_mode((SCREEN_W, SCREEN_H), pygame.FULLSCREEN | pygame.SCALED)
     pygame.display.set_caption("우주 조종 — 악력 재활 게임")
     clock = pygame.time.Clock()
 
@@ -128,8 +130,10 @@ def main():
         for ev in events:
             if ev.startswith("hit:"):
                 sensor.vibrate_pulse(left=True, right=True, duration=0.3)
+                sfx('collision')
             elif ev == "game_over":
                 game_over_at = time.time()
+                sfx('game_over')
 
         # 게임 오버 후 2.5초 표시 후 종료
         if game_over_at > 0 and time.time() - game_over_at > 2.5:

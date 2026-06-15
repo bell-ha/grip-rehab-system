@@ -265,3 +265,13 @@ export DISPLAY=:0
 cd ~/grip-rehab-system/games/balloon_game
 python3 main.py --arduino
 ```
+
+
+
+
+ffmpeg -f x11grab -video_size 1920x1080 -framerate 25 -i :0.0 -f pulse -i alsa_output.platform-fe00b840.mailbox.stereo-fallback.monitor -c:v libx264 -preset ultrafast -crf 28 -c:a aac output.mp4
+위에는 화면 녹화
+
+
+DISPLAY=:0 python3 launcher.py
+위에는 게임 실행 디스플레이 설정도 포함

@@ -22,6 +22,7 @@ import pygame
 # 공통 센서 모듈 import (프로젝트 루트 추가)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from common.sensor import MockGripSensor, RealGripSensor, ArduinoGripSensor
+from common.sfx    import init as sfx_init, play as sfx
 
 from game_logic import BalloonGame, GameConfig, HandState
 from renderer   import GameRenderer
@@ -47,11 +48,12 @@ CONFIG = GameConfig(
 
 def main():
     pygame.init()
+    sfx_init()
     pygame.display.set_caption("풍선 키우기 — 악력 재활 게임")
 
     screen = pygame.display.set_mode(
         (GameRenderer.SCREEN_W, GameRenderer.SCREEN_H),
-        pygame.NOFRAME if USE_REAL_SENSOR else 0,   # Pi에선 전체화면 테두리 없이
+        pygame.FULLSCREEN | pygame.SCALED,
     )
 
     clock = pygame.time.Clock()
@@ -155,30 +157,39 @@ def main():
         l_on_target = game.left.state  == HandState.ON_TARGET
         r_on_target = game.right.state == HandState.ON_TARGET
 
-        # 펑 발생 → 파티클 스폰 + 진동
+        # 펑 발생 → 파티클 스폰 + 진동 + 효과음
         if l_popped and not prev_l_popped:
             lx = renderer.L_PANEL_X + GameRenderer.BALLOON_CX
             ly = renderer.PANEL_Y   + GameRenderer.BALLOON_CY
             renderer.spawn_pop(lx, ly, is_left=True)
             sensor.vibrate_pulse(left=True, right=False, duration=0.4)
+            sfx('pop')
 
         if r_popped and not prev_r_popped:
             rx = renderer.R_PANEL_X + GameRenderer.BALLOON_CX
             ry = renderer.PANEL_Y   + GameRenderer.BALLOON_CY
             renderer.spawn_pop(rx, ry, is_left=False)
             sensor.vibrate_pulse(left=False, right=True, duration=0.4)
+            sfx('pop')
 
-        # 목표 압력 진입 → 짧은 진동 (잘 쥐고 있다는 피드백)
+        # 목표 압력 진입 → 짧은 진동 + 효과음
         if l_on_target and not prev_l_on_target:
             sensor.vibrate_pulse(left=True, right=False, duration=0.15)
+            sfx('on_target')
         if r_on_target and not prev_r_on_target:
             sensor.vibrate_pulse(left=False, right=True, duration=0.15)
+            sfx('on_target')
 
-        # 유지 성공 → 양손 진동 (성취감 피드백)
+        # 유지 성공 → 양손 진동 + 효과음
         if game.left.success_count  > prev_l_success:
             sensor.vibrate_pulse(left=True, right=False, duration=0.6)
+            sfx('success')
         if game.right.success_count > prev_r_success:
             sensor.vibrate_pulse(left=False, right=True, duration=0.6)
+            sfx('success')
+
+        if game.is_over and not prev_both_high:
+            sfx('game_over')
 
         prev_l_popped    = l_popped
         prev_r_popped    = r_popped

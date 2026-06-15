@@ -18,6 +18,7 @@ import pygame
 # 공통 센서 모듈 import (프로젝트 루트 추가)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from common.sensor import MockGripSensor, RealGripSensor, ArduinoGripSensor
+from common.sfx    import init as sfx_init, play as sfx
 
 from game_logic import WhackAMoleLogic
 from renderer   import Renderer, W, H
@@ -33,7 +34,8 @@ def main():
     args = parser.parse_args()
 
     pygame.init()
-    screen = pygame.display.set_mode((W, H))
+    sfx_init()
+    screen = pygame.display.set_mode((W, H), pygame.FULLSCREEN | pygame.SCALED)
     pygame.display.set_caption("두더지 잡기 — 악력 재활 게임")
     clock  = pygame.time.Clock()
 
@@ -123,9 +125,15 @@ def main():
         prev_both_high = both_high
 
         # ── 게임 로직 ────────────────────────────────────────────────────
+        prev_moles = list(logic.state.moles)
         events = logic.update(dt, left_kg, right_kg)
 
-        # 두더지 정리 (딜레이 후 슬롯 비우기) + 진동 피드백
+        # 새로 등장한 두더지 감지 → 등장 소리
+        for prev, cur in zip(prev_moles, logic.state.moles):
+            if prev is None and cur is not None:
+                sfx('appear')
+
+        # 두더지 정리 (딜레이 후 슬롯 비우기) + 진동·효과음 피드백
         for ev in events:
             if ev.startswith("hit:"):
                 i = int(ev.split(":")[1])
@@ -136,16 +144,22 @@ def main():
                         right  = mole.kind in ('right', 'both'),
                         duration = 0.2,
                     )
+                sfx('hit')
                 threading.Thread(
                     target=lambda idx=i: (time.sleep(0.28), logic.clear_mole(idx)),
                     daemon=True,
                 ).start()
             elif ev.startswith("missed:"):
                 i = int(ev.split(":")[1])
+                sfx('miss')
                 threading.Thread(
                     target=lambda idx=i: (time.sleep(0.35), logic.clear_mole(idx)),
                     daemon=True,
                 ).start()
+            elif ev.startswith("combo:"):
+                sfx('combo')
+            elif ev == "game_over":
+                sfx('game_over')
 
         # ── 렌더링 ──────────────────────────────────────────────────────
         for ev in events:

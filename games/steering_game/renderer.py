@@ -4,6 +4,7 @@ renderer.py — 우주 조종 게임 렌더러
 어두운 우주 배경 + 파란 터널 + 흰 우주선
 """
 
+import os
 import pygame
 import math
 import random
@@ -16,14 +17,19 @@ from game_logic import (
 
 
 def _load_font(size: int, bold: bool = False) -> pygame.font.Font:
-    for name in ("나눔고딕", "nanumgothic", "applegothic", "malgun gothic", "gulim", ""):
-        try:
-            path = pygame.font.match_font(name, bold=bold)
-            if path:
-                return pygame.font.Font(path, size)
-        except Exception:
-            pass
-    return pygame.font.SysFont(None, size, bold=bold)
+    candidates = (
+        ['/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf',
+         '/usr/share/fonts/truetype/nanum/NanumGothic.ttf']
+        if bold else
+        ['/usr/share/fonts/truetype/nanum/NanumGothic.ttf']
+    ) + [
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+        '/System/Library/Fonts/AppleSDGothicNeo.ttc',
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return pygame.font.Font(path, size)
+    return pygame.font.Font(None, size)
 
 _BG     = (10,  10,  30)
 _TUNNEL = (22,  52,  92)
