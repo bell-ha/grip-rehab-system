@@ -14,6 +14,21 @@
 
 </div>
 
+<div align="center">
+
+<a href="https://www.youtube.com/watch?v=_I-ejlEAkNM">
+<img src="https://img.youtube.com/vi/_I-ejlEAkNM/maxresdefault.jpg" width="560"/>
+</a>
+
+<sub>데모 영상 — 로드셀을 쥐는 힘이 그대로 게임 입력이 된다 &nbsp;·&nbsp; 이미지를 누르면 영상이 열린다</sub>
+
+<br><br>
+
+<img src="docs/images/hardware.jpg" width="560"/>
+<br><sub>가운데 로드셀 마운트(3D 모델링·출력), 우측 상단 아두이노 우노, 그 아래 HX711 증폭 모듈.<br>좌우 진동 모터는 전류 부하 때문에 트랜지스터 구동으로 회로를 바꿨다</sub>
+
+</div>
+
 ---
 
 ## 한눈에 보기
